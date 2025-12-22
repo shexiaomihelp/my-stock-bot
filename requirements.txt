@@ -4,3 +4,4 @@ pandas_ta
 pandas
 numpy
 requests
+flask
