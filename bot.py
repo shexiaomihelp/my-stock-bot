@@ -140,6 +140,19 @@ def main():
     app.add_handler(CallbackQueryHandler(handle_callback))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.run_polling()
+from flask import Flask
+import threading
 
+app_web = Flask(__name__)
+@app_web.route('/')
+def health_check():
+    return "Bot is running!"
+
+def run_flask():
+    app_web.run(host='0.0.0.0', port=10000)
+
+# 在啟動機器人前先開一個網頁線程
+threading.Thread(target=run_flask, daemon=True).start()
 if __name__ == "__main__":
+
     main()
