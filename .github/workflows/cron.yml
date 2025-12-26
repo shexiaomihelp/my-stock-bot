@@ -16,10 +16,10 @@ jobs:
         with:
           python-version: '3.10'  # 升級到 3.10 以相容 pandas-ta
 
-      - name: Install Dependencies
+     - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          # 不鎖定精確版本，讓系統自動抓取最相容組合
-          pip install pandas yfinance requests gspread oauth2client numpy
-          # 強制從 GitHub 直接安裝 pandas-ta，這能繞過 pip 倉庫的版本錯誤
-          pip install https://github.com/twopirllc/pandas-ta/archive/refs/heads/master.zip
+          # 關鍵：強制鎖定 Numpy 版本，解決 image_940d62.png 的報錯
+          pip install "numpy<2.0.0" "pandas<2.0.0" yfinance requests gspread oauth2client
+          # 直接使用穩定版安裝
+          pip install pandas-ta
