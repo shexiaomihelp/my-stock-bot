@@ -1,8 +1,8 @@
 name: Stock Cloud Monitor
 on:
   schedule:
-    - cron: '0 * * * *'  # 每小時自動執行一次
-  workflow_dispatch:      # 允許您在 Actions 頁面手動點擊執行
+    - cron: '0 * * * *'
+  workflow_dispatch:
 
 jobs:
   run-monitor:
@@ -14,13 +14,15 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: '3.9'  # 改成 3.9 比較穩定
 
       - name: Install Dependencies
-        run: pip install -r requirements.txt
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
       - name: Run Python Script
         env:
           GCP_JSON: ${{ secrets.GCP_JSON }}
           SHEET_ID: ${{ secrets.SHEET_ID }}
-        run: python bot.py  # 這裡對應您的檔名 bot.py
+        run: python bot.py
