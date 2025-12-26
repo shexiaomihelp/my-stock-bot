@@ -8,7 +8,7 @@ def cloud_fix():
         # 強制安裝 pandas 1.5.3 避開新版 Python 報錯
         subprocess.check_call([sys.executable, "-m", "pip", "install", "pandas==1.5.3", "yfinance", "requests"])
         # 強制安裝 pandas-ta 且不檢查相依性
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "pandas-ta", "--no-dependencies"])
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "pandas_ta", "--no-dependencies"])
     except:
         pass
 
@@ -20,7 +20,7 @@ install_requirements()
 
 import pandas as pd
 import yfinance as yf
-import pandas-ta as ta
+import pandas_ta as ta
 import requests
 
 # --- 1. 從 GitHub Secrets 讀取設定 ---
@@ -111,5 +111,6 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"自動化過程發生錯誤: {e}")
             time.sleep(60) # 發生錯誤時等 1 分鐘再試
+
 
 
