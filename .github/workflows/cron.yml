@@ -14,16 +14,11 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.9'  # 這裡改用 3.9，套件最穩
+          python-version: '3.9'
 
-      - name: Install Dependencies
+      - name: Clean and Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pandas==1.5.3 yfinance requests gspread oauth2client
-          pip install pandas-ta --no-deps  # 強制跳過導致報錯的相依性檢查
-
-      - name: Run Python Script
-        env:
-          GCP_JSON: ${{ secrets.GCP_JSON }}
-          SHEET_ID: ${{ secrets.SHEET_ID }}
-        run: python bot.py
+          # 關鍵：同時安裝相容的 numpy 和 pandas
+          pip install "numpy<1.24.0" "pandas<2.0.0" yfinance requests gspread oauth2client
+          pip install pandas-ta --no-deps
