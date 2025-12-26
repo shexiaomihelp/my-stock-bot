@@ -2,22 +2,19 @@ import os
 import subprocess
 import sys
 
-# 雲端環境修復指令
 def cloud_fix():
     try:
-        # 強制安裝 pandas 1.5.3 避開新版 Python 報錯
+        # 1. 先裝基礎套件
         subprocess.check_call([sys.executable, "-m", "pip", "install", "pandas==1.5.3", "yfinance", "requests"])
-        # 強制安裝 pandas-ta 且不檢查相依性
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "pandas_ta", "--no-dependencies"])
-    except:
-        pass
+        # 2. 強制安裝 pandas-ta (必須用橫線 - )
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "pandas-ta", "--no-deps"])
+    except Exception as e:
+        print(f"安裝過程出錯: {e}")
 
+# 執行修復
 cloud_fix()
 
-# 以下接您的 V11.0 掃描邏輯... (略)pass
-
-install_requirements()
-
+# 3. 安裝完後才導入 (導入時才用底線 _ )
 import pandas as pd
 import yfinance as yf
 import pandas_ta as ta
@@ -111,6 +108,7 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"自動化過程發生錯誤: {e}")
             time.sleep(60) # 發生錯誤時等 1 分鐘再試
+
 
 
 
