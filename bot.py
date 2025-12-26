@@ -20,7 +20,7 @@ install_requirements()
 
 import pandas as pd
 import yfinance as yf
-import pandas_ta as ta
+import pandas-ta as ta
 import requests
 
 # --- 1. 從 GitHub Secrets 讀取設定 ---
@@ -111,4 +111,5 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"自動化過程發生錯誤: {e}")
             time.sleep(60) # 發生錯誤時等 1 分鐘再試
+
 
