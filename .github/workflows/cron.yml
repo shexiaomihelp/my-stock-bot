@@ -14,7 +14,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.9'  # 改成 3.9 比較穩定
+          python-version: '3.9'  # 這裡改用 3.9，套件最穩
 
       - name: Install Dependencies
         run: |
