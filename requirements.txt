@@ -1,6 +1,7 @@
 yfinance
 pandas==1.5.3
-pandas_ta
+pandas-ta
 requests
 gspread
 oauth2client
+
