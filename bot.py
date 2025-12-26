@@ -1,115 +1,124 @@
 import os
 import subprocess
 import sys
+import json
+import time
 
+# ==========================================
+# 0. 環境自動修復 (解決雲端套件缺失與版本衝突)
+# ==========================================
 def cloud_fix():
+    print("⏳ 正在初始化環境並安裝套件...")
+    # 這裡使用您指定的 6 個套件清單
+    pkgs = ["yfinance", "pandas==1.5.3", "requests", "gspread", "oauth2client"]
+    for p in pkgs:
+        try:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", p, "--quiet"])
+        except:
+            pass
+    # 強制安裝 pandas-ta (必須用橫線，且不檢查相依性以防報錯)
     try:
-        # 1. 先裝基礎套件
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "pandas==1.5.3", "yfinance", "requests"])
-        # 2. 強制安裝 pandas-ta (必須用橫線 - )
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "pandas-ta", "--no-deps"])
-    except Exception as e:
-        print(f"安裝過程出錯: {e}")
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "pandas-ta", "--no-deps", "--quiet"])
+    except:
+        pass
+    print("✅ 環境準備就緒")
 
-# 執行修復
+# 啟動修復程序
 cloud_fix()
 
-# 3. 安裝完後才導入 (導入時才用底線 _ )
+# ==========================================
+# 1. 導入套件 (安裝後才執行)
+# ==========================================
 import pandas as pd
 import yfinance as yf
-import pandas_ta as ta
+import pandas_ta as ta  # 導入時使用底線
 import requests
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
-# --- 1. 從 GitHub Secrets 讀取設定 ---
-# 請確保您在 GitHub Settings > Secrets 裡有 SHEET_ID, GCP_JSON
-# 若您這版不需要讀取 Google Sheet，可直接保留以下 TG 設定
-TELEGRAM_BOT_TOKEN = "7959417356:AAFosIMtNYPhbr6xr1gvz9bhskkK_MR2OA8"
-TELEGRAM_CHAT_ID = "8398567813"
+# ==========================================
+# 2. 參數設定 (請確保 GitHub Secrets 已設定)
+# ==========================================
+TG_TOKEN = "7959417356:AAFosIMtNYPhbr6xr1gvz9bhskkK_MR2OA8"
+TG_CHAT_ID = "8398567813"
+SHEET_ID = os.getenv("SHEET_ID")
+GCP_JSON_STR = os.getenv("GCP_JSON")
 
-# 2026 戰略標的
+# 2026 戰略標的 (備用名單)
 STOCKS_TO_WATCH = [
     '2330.TW', '2317.TW', '2454.TW', '3017.TW', '6669.TW',
     'NVDA', 'AVGO', 'ASML', 'ARM', 'MSFT', 'AMZN',
     'ISRG', 'RKLB', 'PLTR', 'TSLA'
 ]
 
-MA_PERIOD = 20
-VOL_THRESHOLD = 1.1
-
-# --- 2. 核心運算 ---
-def get_data(ticker):
-    try:
-        df = yf.download(ticker, period='1y', progress=False)
-        if df.empty: return None
-        if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.droplevel(1)
-        
-        df['EMA20'] = ta.ema(df['Close'], length=MA_PERIOD)
-        df['ATR'] = ta.atr(df['High'], df['Low'], df['Close'], length=14)
-        df['V_MA5'] = ta.sma(df['Volume'], length=5)
-        df['RSI'] = ta.rsi(df['Close'], length=14)
-        sar_df = ta.psar(df['High'], df['Low'], df['Close'])
-        df['SAR'] = sar_df[sar_df.columns[0]].fillna(sar_df[sar_df.columns[1]])
-        
-        return df.dropna()
-    except: return None
-
+# ==========================================
+# 3. 核心功能
+# ==========================================
 def send_tg(text):
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": text, "parse_mode": "Markdown"}
-    requests.post(url, data=payload, timeout=15)
+    url = f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage"
+    try:
+        requests.post(url, data={"chat_id": TG_CHAT_ID, "text": text, "parse_mode": "Markdown"}, timeout=15)
+    except:
+        pass
+
+def get_portfolio():
+    # 優先嘗試讀取 Google Sheets
+    try:
+        if not GCP_JSON_STR or not SHEET_ID:
+            return None
+        scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+        creds_dict = json.loads(GCP_JSON_STR)
+        creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+        client = gspread.authorize(creds)
+        return client.open_by_key(SHEET_ID).sheet1.get_all_records()
+    except Exception as e:
+        print(f"Sheets 讀取失敗，改用預設清單: {e}")
+        return None
 
 def run_scan():
+    portfolio = get_portfolio()
+    # 如果 Sheets 讀取失敗，使用內建戰略名單
+    target_list = [item.get('Ticker') for item in portfolio if item.get('Ticker')] if portfolio else STOCKS_TO_WATCH
+    
     signals, overheated, low_vol = [], [], []
 
-    for t in STOCKS_TO_WATCH:
-        df = get_data(t)
-        if df is None: continue
-        curr = df.iloc[-1]
-        
-        p, ema, atr = curr['Close'], curr['EMA20'], curr['ATR']
-        vol, v_ma5 = curr['Volume'], curr['V_MA5']
-        
-        # ATR 動態乖離計算
-        dev_price = p - ema
-        max_allowed_dev = atr * 2.0 
-        
-        if p > ema and curr['RSI'] > 50 and p > curr['SAR']:
-            if vol < v_ma5 * VOL_THRESHOLD:
-                low_vol.append(t)
-                continue
+    for t in target_list:
+        try:
+            df = yf.download(t, period='1y', progress=False)
+            if df.empty: continue
+            if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.droplevel(1)
             
-            if dev_price > max_allowed_dev:
-                overheated.append(f"🔥 `{t}`")
-            else:
-                risk = p - curr['SAR']
-                tp = p + (risk * 1.5)
-                signals.append(f"🎯 *{t}*\n├ 現價: `{p:.2f}`\n├ 🛡️ 停損: `{curr['SAR']:.2f}`\n└ 🚀 停利: `{tp:.2f}`")
+            # 指標計算
+            df['EMA20'] = ta.ema(df['Close'], length=20)
+            df['ATR'] = ta.atr(df['High'], df['Low'], df['Close'], length=14)
+            df['V_MA5'] = ta.sma(df['Volume'], length=5)
+            df['RSI'] = ta.rsi(df['Close'], length=14)
+            sar_df = ta.psar(df['High'], df['Low'], df['Close'])
+            df['SAR'] = sar_df[sar_df.columns[0]].fillna(sar_df[sar_df.columns[1]])
+            
+            curr = df.iloc[-1]
+            p, ema, atr, vol, v_ma5 = curr['Close'], curr['EMA20'], curr['ATR'], curr['Volume'], curr['V_MA5']
+            
+            # ATR 動態乖離過濾
+            if p > ema and curr['RSI'] > 50 and p > curr['SAR']:
+                if vol < v_ma5 * 1.1:
+                    low_vol.append(t)
+                elif (p - ema) > (atr * 2.0):
+                    overheated.append(f"🔥 `{t}`")
+                else:
+                    risk = p - curr['SAR']
+                    tp = p + (risk * 1.5)
+                    signals.append(f"🎯 *{t}*\n├ 現價: `{p:.2f}`\n├ 🛡️ 停損: `{curr['SAR']:.2f}`\n└ 🚀 停利: `{tp:.2f}`")
+        except:
+            continue
 
     # 報告整合
-    report = "📊 *V11.0 2026 戰略掃描*\n" + "━"*15 + "\n"
-    report += "✅ *量價齊揚：*\n" + ("\n\n".join(signals) if signals else "⚠️ 目前無標的符合條件")
-    
-    if overheated:
-        report += "\n\n過熱標的 (不宜追高)：\n`" + ", ".join(overheated) + "`"
-    if low_vol:
-        report += "\n\n量能不足：\n`" + ", ".join(low_vol) + "`"
+    report = "📊 *V11.0 雲端掃描報告*\n" + "━"*15 + "\n"
+    report += "✅ *量價齊揚：*\n" + ("\n\n".join(signals) if signals else "⚠️ 目前無符合標的")
+    if overheated: report += "\n\n過熱標的：\n`" + ", ".join(overheated) + "`"
+    if low_vol: report += "\n\n量能不足：\n`" + ", ".join(low_vol) + "`"
     
     send_tg(report)
 
 if __name__ == "__main__":
-    while True:
-        try:
-            run_scan()
-            print("🕒 掃描完成，1 小時後將再次執行...")
-            time.sleep(3600)  # 暫停 3600 秒 (1 小時)
-        except KeyboardInterrupt:
-            print("停止自動化掃描")
-            break
-        except Exception as e:
-            print(f"自動化過程發生錯誤: {e}")
-            time.sleep(60) # 發生錯誤時等 1 分鐘再試
-
-
-
-
-
+    run_scan()
