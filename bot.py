@@ -98,4 +98,14 @@ def run_scan():
     send_tg(report)
 
 if __name__ == "__main__":
-    run_scan()
+    while True:
+        try:
+            run_scan()
+            print("🕒 掃描完成，1 小時後將再次執行...")
+            time.sleep(3600)  # 暫停 3600 秒 (1 小時)
+        except KeyboardInterrupt:
+            print("停止自動化掃描")
+            break
+        except Exception as e:
+            print(f"自動化過程發生錯誤: {e}")
+            time.sleep(60) # 發生錯誤時等 1 分鐘再試
