@@ -1,34 +1,5 @@
 import os
-import subprocess
-import sys
 import json
-import time
-
-# ==========================================
-# 0. 環境自動修復 (修正 numpy 與 pandas 不相容問題)
-# ==========================================
-def cloud_fix():
-    print("⏳ 正在修正 Numpy 與 Pandas 版本相容性...")
-    # 強制安裝 numpy 1.23.5 是解決 image_93acc1.png 報錯的關鍵
-    pkgs = ["numpy==1.23.5", "pandas==1.5.3", "yfinance", "requests", "gspread", "oauth2client"]
-    for p in pkgs:
-        try:
-            subprocess.check_call([sys.executable, "-m", "pip", "install", p, "--quiet", "--no-warn-script-location"])
-        except:
-            pass
-    # 強制安裝 pandas-ta
-    try:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "pandas-ta", "--no-deps", "--quiet"])
-    except:
-        pass
-    print("✅ 環境與 Numpy 補丁準備就緒")
-
-# 執行修復
-cloud_fix()
-
-# ==========================================
-# 1. 導入套件 (現在 numpy 已經修正，不會再報錯了)
-# ==========================================
 import pandas as pd
 import yfinance as yf
 import pandas_ta as ta
@@ -36,9 +7,7 @@ import requests
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
-# ==========================================
-# 2. 參數設定 (請確保 Secrets 已設定)
-# ==========================================
+# --- 參數設定 ---
 TG_TOKEN = "7959417356:AAFosIMtNYPhbr6xr1gvz9bhskkK_MR2OA8"
 TG_CHAT_ID = "8398567813"
 SHEET_ID = os.getenv("SHEET_ID")
@@ -46,9 +15,6 @@ GCP_JSON_STR = os.getenv("GCP_JSON")
 
 STOCKS_TO_WATCH = ['2330.TW', '2317.TW', '2454.TW', 'NVDA', 'TSLA', 'PLTR', 'RKLB']
 
-# ==========================================
-# 3. 執行邏輯
-# ==========================================
 def send_tg(text):
     url = f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage"
     try:
@@ -57,7 +23,6 @@ def send_tg(text):
         pass
 
 def run_scan():
-    # 這裡會讀取 Google Sheets，如果沒設定會用預設清單
     target_list = STOCKS_TO_WATCH
     try:
         if GCP_JSON_STR and SHEET_ID:
@@ -88,7 +53,7 @@ def run_scan():
         except:
             continue
 
-    report = "📊 *V11.0 雲端自動掃描報告*\n" + ("\n".join(signals) if signals else "⚠️ 目前無符合標的")
+    report = "📊 *V11.0 雲端正式版*\n" + ("\n".join(signals) if signals else "⚠️ 目前無符合標的")
     send_tg(report)
 
 if __name__ == "__main__":
