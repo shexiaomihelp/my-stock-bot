@@ -20,7 +20,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install pandas==1.5.3 yfinance requests gspread oauth2client
-          pip install pandas-ta --no-dependencies
+          pip install pandas-ta --no-deps  # 強制跳過導致報錯的相依性檢查
 
       - name: Run Python Script
         env:
