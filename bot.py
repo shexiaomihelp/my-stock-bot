@@ -2,17 +2,19 @@ import os
 import subprocess
 import sys
 
-# --- 0. 自動安裝缺失套件 (解決 GitHub 環境報錯) ---
-def install_requirements():
-    packages = ['yfinance', 'pandas==1.5.3', 'pandas_ta', 'requests']
-    for p in packages:
-        try:
-            # 使用 --no-deps 安裝 pandas_ta 以避開版本衝突
-            cmd = [sys.executable, "-m", "pip", "install", p]
-            if p == 'pandas_ta': cmd.append("--no-deps")
-            subprocess.check_call(cmd)
-        except:
-            pass
+# 雲端環境修復指令
+def cloud_fix():
+    try:
+        # 強制安裝 pandas 1.5.3 避開新版 Python 報錯
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "pandas==1.5.3", "yfinance", "requests"])
+        # 強制安裝 pandas-ta 且不檢查相依性
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "pandas-ta", "--no-dependencies"])
+    except:
+        pass
+
+cloud_fix()
+
+# 以下接您的 V11.0 掃描邏輯... (略)pass
 
 install_requirements()
 
@@ -109,3 +111,4 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"自動化過程發生錯誤: {e}")
             time.sleep(60) # 發生錯誤時等 1 分鐘再試
+
